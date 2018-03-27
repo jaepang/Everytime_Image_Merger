@@ -1,0 +1,8 @@
+# .DS_Store
+.DS_Store
+
+# .jpg files
+*.jpg
+
+# pycharm working
+.idea
