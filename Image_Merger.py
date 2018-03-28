@@ -8,6 +8,7 @@ __author__ = "shinjawkwang@naver.com"
 
 import glob
 import cv2
+from PIL import Image
 import numpy as np
 
 
@@ -76,35 +77,35 @@ def CalcRowLevel(files):
 
         # return할 matrix에 list 추가
         matrix.append(list)
+
     return matrix
 
 
 # 가장 큰 칸 사이 거리를 return
-# 이상하게 이 함수를 돌리면 CalcRowLevel 함수에서 오류가 남
-# bad argument type for built-in operation
-def CalcMaxRowLv(matrix):
+def CalcMaxRowLv(matrix, col):
     maxRow = 0
     for i in range(len(matrix)):
-        maxRow = max(maxRow, matrix[i][1])
+        maxRow = max(maxRow, matrix[i][col])
     return maxRow
 
 
 # 시간표들 중 가장 큰 column 값을 return
-def CalcMaxCol(files):
-    maxCol = 0
+def CalcMax(files, cnt):
+    Max = 0
     for file in files:
         img = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
-        maxCol = max(maxCol, img.shape[1])
-    return maxCol
+        Max = max(Max, img.shape[cnt])
+    return Max
 
 
 # 가장 큰 칸 사이 거리, 가장 큰 column 값을 가지고 이미지를 리사이징한다.
 # 한 칸 높이가 같도록, 가로 길이가 모두 같도록.
-# 맨 윗 칸 때문에 약간의 오류가 발생할 수 있다. 맨 윗 부분을 잘라내야 할까?
+# 맨 윗 칸 때문에 약간의 오류가 발생할 수 있다. 맨 윗 부분을 잘라내야 할까? ==> 잘라냈다!
 def ResizeImage(files, matrix, maxCol, maxRow, target_dir):
     i = 0
     for file in files:
         img = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
+        # resize 함수 => (이미지, ?(뭐더라), 가로 크기, 세로 크기, ??)
         img2 = cv2.resize(img, None, fx= 1.5*maxCol/img.shape[1], fy=maxRow/matrix[i][1],
                           interpolation=cv2.INTER_CUBIC + cv2.INTER_LINEAR)
         cv2.imwrite(target_dir + '/Resize/' + str(i) + '_rs.jpg', img2)
@@ -146,11 +147,37 @@ def deleteMax(files, target_dir):
         i += 1
 
 
+# 이미지 병합을 위해선, 사이즈가 "정확히" 같아야 한다
+# 이를 위해 아랫쪽에 하얀 부분을 붙이는 코드이다
+def MergeWhite(files, maxCol, maxRow, target_dir):
+    i = 0
+    for file in files:
+        # 규격을 통일한 흰색 이미지 생성
+        newImage = np.zeros((maxRow, maxCol, 3), np.uint8)
+        newImage[:, :] = (255, 255, 255)
+
+        img = cv2.imread(file)
+        newImage[0:img.shape[0], 0:img.shape[1]] = img
+        cv2.imwrite(target_dir + "/ResizeComp/" + str(i) + '.jpg', newImage)
+        i += 1
+
+
 # 이미지를 병합하는 코드
 # opencv의 add함수를 이용한다
 # 사이즈 이슈가 있는 듯 하다
-def addImg(files, target_dir):
-    flag = True
+def addImg(files, target_dir, maxRow, maxCol):
+    RESULT = np.zeros((maxRow, maxCol, 3), np.uint8)
+    RESULT[:,:] = (255, 255, 255)
+    flag = False
+    # flag = True
+    images = [cv2.imread(img) for img in files]
+
+    for img in images:
+        if flag:
+            break
+        RESULT = cv2.add(RESULT, img)
+        flag = True
+    '''
     for file in files:
         img = cv2.imread(file)
         if flag:
@@ -159,6 +186,7 @@ def addImg(files, target_dir):
         else:
             RESULT = cv2.add(tmp, img)
         tmp = RESULT
+    '''
     cv2.imwrite(target_dir + 'RESULT.jpg', RESULT)
 
 
@@ -169,7 +197,7 @@ def main():
     # == Default Path in BOOTY, Windows ============
     # target_dir = "C:\\Users\\Shinjaekwang\\Dropbox\\Code\\2018\\LFDM_PYthon\\Images\\"
     # == Default Path in shinjaekwang, Mac OS X ====
-    target_dir = "/Users/shinjaekwang/Dropbox/Code/2018/LFDM_PYthon/Images/"
+    target_dir = "/Users/shinjaekwang/Dropbox/Code/Everytime_Image_Merger/Images/"
     # target_dir = input("이미지 파일이 담긴 폴더 경로를 입력하십시오: ")
     # ==============================================
     files = glob.glob(target_dir + "*.jpg")
@@ -178,11 +206,15 @@ def main():
     rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
 
     matrix = CalcRowLevel(rs_files)
-    maxCol = CalcMaxCol(rs_files)
-    maxRow = CalcMaxRowLv(matrix)
+    maxCol = CalcMax(rs_files, 1)
+    maxRowlv = CalcMaxRowLv(matrix, 1)
 
-    ResizeImage(rs_files, matrix, maxCol, maxRow, target_dir)
+    ResizeImage(rs_files, matrix, maxCol, maxRowlv, target_dir)
+    maxRow = CalcMax(rs_files, 0)
+    MergeWhite(rs_files, int(1.5*maxCol), maxRow, target_dir)
 
+    rs_files = glob.glob(target_dir + '/ResizeComp/' + '*,jpg')
+    addImg(rs_files, target_dir, maxRow, int(1.5*maxCol))
 
 if __name__ == "__main__":
     main()
