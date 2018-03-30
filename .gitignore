@@ -4,11 +4,8 @@
 # .jpg files
 *.jpg
 
-# pycharm working
+# ignore .* folders
 .idea/
-
- # ignore .vscode configuration
- .vscode/
-
- # ignore .* folders
- .*/
+.vscode/
+.dist/
+.mypy_cache/
