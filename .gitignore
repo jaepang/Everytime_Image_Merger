@@ -6,3 +6,5 @@
 
 # pycharm working
 .idea/
+ # ignore .vscode configuration
+ .vscode/
