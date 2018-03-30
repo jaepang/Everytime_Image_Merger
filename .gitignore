@@ -6,5 +6,9 @@
 
 # pycharm working
 .idea/
+
  # ignore .vscode configuration
  .vscode/
+
+ # ignore .* folders
+ .*/
