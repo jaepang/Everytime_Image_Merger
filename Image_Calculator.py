@@ -1,23 +1,31 @@
 # -*- coding: utf-8 -*-
 __author__ = "shinjawkwang@naver.com"
-# 이 프로그램은 악의 꽃 시간표 조정을 위해 제작한 프로그램입니다.
+# 이 프로그램은 성균관대학교 정보통신대학 밴드동아리 악의 꽃 시간표 조정을 위해 제작한 프로그램입니다.
 # 에브리타임 앱 내의 시간표 "이미지로 저장" 기능으로 저장한 시간표 이미지를 요합니다.
 # 배경색이 흰색 계열인 (회색도 안됨) 테마의 시간표 이미지만 사용 가능합니다.
+# 월~금요일까지 기록된 시간표만 지원합니다 (동아리에 토욜시간표도 추가하는 사람이 생기면 그 때 수정 예정)
 
 
 import glob
 
 import cv2
 import numpy as np
-from PIL import Image
 
 
-# (세로 길이, 칸 사이 거리, 칸 수)로 구성된 list를 return
-# 칸 수의 case는 9칸, 14칸이므로, 두 가지 case만을 고려한 코드임을 알려드립니다.
-def CalcRowLevel(files):
+# 칸수의 case를 고려하기 위해, 아래 method의 rows 리스트를 이용해 칸 수를 조정하고자 한다
+# 맨 밑에 회색줄의 위치가 기록된 경우, 그 부분을 삭제하는 method이다
+def deleteBottom(rows, height):
+    if height - rows[0] < 10:
+        del rows[0]
+    return rows
+
+
+# (칸 사이 거리, 칸의 수)로 구성된 list를 return
+# 칸 수의 case를 고려하는 method : deleteBottom
+def CalcRows(files):
     matrix = []
     for file in files:
-
+        print("==== ", file, " ====")
         # matrix에 넣을 list
         list = []
 
@@ -27,9 +35,8 @@ def CalcRowLevel(files):
 
         # img.shape는 [height, width, channel(그레이스케일의 경우 존재하지 않는다)]로 구성
         height = img.shape[0]
-
+        
         # 높이 list에 추가
-        list.append(height)
         rows = []
 
         # 최초 sv는 필터링 되지 않기 위함
@@ -57,49 +64,25 @@ def CalcRowLevel(files):
                 sv = height
             height -= 1
 
+        # 회색 선이 시간표 맨 밑 칸에 있기도 하고, 없기도 하다
+        # 그래서 rows 원소들이 칸 수 보다 하나 더 많이 생기는 경우가 있다
+        # 이 경우를 고려하기 위함 (참고로, 맨 위에 줄이 있는 시간표는 내가 본 시간표 중엔 없었다)
+        rows = deleteBottom(rows, img.shape[0])
+
         # 각 원소들 사이값의 평균으로 하는게 가장 정확하겠지만
         # 최초값으로 해도 큰 차이는 없기에
         # 편의상 최초 두 원소의 차로 칸 사이 거리를 계산함
         list.append(rows[0] - rows[1])
-
-        # 회색 선이 시간표 맨 밑 칸에 있기도 하고, 없기도 하다
-        # 그래서 rows 원소들이 칸 수 보다 하나 더 많이 생기는 경우가 있다
-        # 이 경우를 고려하기 위함 (참고로, 맨 위에 줄이 있는 시간표는 내가 본 시간표 중엔 없었다)
-        # 맨 밑에 회색줄이 있는 경우
-        # ===== 시간표 칸수가 다른 경우, 여기서 9나 14를 수정(혹은 다른 수를 추가)해야 합니다 =====
-        if len(rows) == 9 or len(rows) == 14:
-            # =======================================================================
-            list.append(len(rows))
-
-        # 맨 밑에 회색줄이 없는 경우
-        else:
-            list.append(len(rows) - 1)
-
+        list.append(len(rows))
+        
         # return할 matrix에 list 추가
         matrix.append(list)
-
+    
     return matrix
 
 
-# 가장 큰 칸 사이 거리를 return
-def CalcMaxRowLv(matrix, col):
-    maxRow = 0
-    for i in range(len(matrix)):
-        maxRow = max(maxRow, matrix[i][col])
-    return maxRow
-
-
-# 시간표들 중 가장 큰 column 값을 return
-def CalcMax(files, case):
-    Max = 0
-    for file in files:
-        img = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
-        Max = max(Max, img.shape[case])
-    return Max
-
-
 # 시간표 이미지에서 "월화수목금", "9시, 10시, 11시 ..." 부분을 삭제한다.
-def deleteMax(files, target_dir):
+def deleteTop(files, target_dir):
     sv = []
     i = 0
     for file in files:
@@ -110,24 +93,24 @@ def deleteMax(files, target_dir):
         idx = 0
         lev = 0
         while lev < img.shape[idx]:
-            
-            if idx==0:
+
+            if idx == 0:
                 px = img[lev, 0]
             else:
                 px = img[0, lev]
 
             # 회색 픽셀이 발견되었을 때
-            if px<255:
+            if px < 255:
 
                 # 위치를 저장
                 sv.append(lev)
-                if len(sv)>1:
+                if len(sv) > 1:
 
                     # 칸 사이 거리가 30 이상이면 칸이 떨어졌다고 간주
                     # 잘라서 저장하고 반복문을 종료한다.
                     if sv[len(sv)-1] - sv[len(sv)-2] > 30:
-                        if idx==0:
-                            delImg = img[sv[len(sv)-2]:img.shape[0], 0:img.shape[1]]
+                        if idx == 0:
+                            delImg = img[sv[len(sv)-2]                                         :img.shape[0], 0:img.shape[1]]
 
                             # parameter들 초기값으로 돌리고, 가로 모드로 전환
                             idx += 1
@@ -136,9 +119,11 @@ def deleteMax(files, target_dir):
                             # continue가 없으면 lev+=1이 수행되버림
                             continue
 
-                        elif idx==1:
-                            delImg = delImg[0:delImg.shape[0], sv[len(sv)-2]:img.shape[1]]
-                            cv2.imwrite(target_dir + '/Resize/' + str(i) + '_rs.jpg', delImg)
+                        elif idx == 1:
+                            delImg = delImg[0:delImg.shape[0],
+                                            sv[len(sv)-2]:img.shape[1]]
+                            cv2.imwrite(target_dir + '/Resize/' +
+                                        str(i) + '_rs.jpg', delImg)
                             break
 
             lev += 1
@@ -147,6 +132,11 @@ def deleteMax(files, target_dir):
         sv.clear()
         i += 1
 
+
+# deleteTop으로 리사이징한 이미지와, CalcRows로 구한 칸 수, 칸 사이 거리를 이용해
+# 비는 시간대를 계산한다 (수업 사이 15분은 사실상 의미가 없으므로 무시한다)
+def calcEmpty(files, matrix):
+    return NULL
 
 def main():
     print("# Welcome to Everytime Schedule MAkEr")
@@ -160,16 +150,11 @@ def main():
     # ==============================================
     files = glob.glob(target_dir + "*.jpg")
 
-    deleteMax(files, target_dir)
+    matrixRow = CalcRows(files)
+    deleteTop(files, target_dir)
     rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
-
-    matrixRow = CalcRowLevel(files)
-    maxCol = CalcMax(rs_files, 1)
     print(matrixRow)
-    print(matrixCol)
-    print(maxCol)
-    # maxRowlv = CalcMaxRowLv(matrix, 1)
-    # maxRow = CalcMax(rs_files, 0)
+
 
 if __name__ == "__main__":
     main()
