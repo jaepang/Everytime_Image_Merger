@@ -86,7 +86,8 @@ def deleteTop(files, target_dir):
     sv = []
     i = 0
     for file in files:
-        img = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(file, cv2.IMREAD_COLOR)
+        imgG = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
 
         # idx=0 : 세로 자르기
         # idx=1 : 가로 자르기
@@ -95,9 +96,9 @@ def deleteTop(files, target_dir):
         while lev < img.shape[idx]:
 
             if idx == 0:
-                px = img[lev, 0]
+                px = imgG[lev, 0]
             else:
-                px = img[0, lev]
+                px = imgG[0, lev]
 
             # 회색 픽셀이 발견되었을 때
             if px < 255:
@@ -110,7 +111,7 @@ def deleteTop(files, target_dir):
                     # 잘라서 저장하고 반복문을 종료한다.
                     if sv[len(sv)-1] - sv[len(sv)-2] > 30:
                         if idx == 0:
-                            delImg = img[sv[len(sv)-2]                                         :img.shape[0], 0:img.shape[1]]
+                            delImg = img[sv[len(sv)-2]:img.shape[0], 0:img.shape[1]]
 
                             # parameter들 초기값으로 돌리고, 가로 모드로 전환
                             idx += 1
@@ -133,10 +134,71 @@ def deleteTop(files, target_dir):
         i += 1
 
 
-# deleteTop으로 리사이징한 이미지와, CalcRows로 구한 칸 수, 칸 사이 거리를 이용해
+# deleteTop으로 리사이징한 이미지와, CalcRows로 구한 (칸 사이 거리, 칸의 수)를 이용해
 # 비는 시간대를 계산한다 (수업 사이 15분은 사실상 의미가 없으므로 무시한다)
+# [0-15, 15-30, 30-45, 45-60]
 def calcEmpty(files, matrix):
-    return NULL
+    busyTime = []
+    pxList = []
+    temp = []
+    quarters = []
+    i=0
+    for file in files:
+        print("==== ", file, " ====")
+        img = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
+        
+        height, width = img.shape
+        print(height, width)
+        aQuarter = round((height // matrix[i][1]) / 4)
+        print("a quarter : ", aQuarter)
+        
+        # 1~5 => range(1, 6)
+        for days in range(1, 6):
+            row = ((width // 5) * days) - 5
+            print("Detecting day: ", days)
+            lev = 0
+            flag = True
+            while lev<height and flag:
+                flag = True
+                px = img[lev, row]
+                while px<250:
+                    pxList.append(lev)
+                    lev += 1
+                    if(lev < height):
+                        px = img[lev, row]
+                    else:
+                        flag = False;
+                        break
+
+                if len(pxList) > 0:
+
+                    # 시간표에 글씨때문에 잘렸던 경우
+                    if len(temp) > 0 and pxList[0] - temp[len(temp)-1] < 20 and len(temp) > 10 and len(pxList) > 10:
+                        if len(quarters)>0 and quarters[len(quarters)-1][1] == temp[0]:
+                            quarters.pop()
+                        classLV = pxList[len(pxList)-1] - temp[0]
+                    else:
+                        classLV = pxList[len(pxList)-1] - pxList[0]
+                    print("====", classLV, "====")
+                    quarters.append([round((classLV/aQuarter)), pxList[0]])
+                    if quarters[len(quarters)-1][0] == 0:
+                        quarters.pop()
+                    print(pxList, quarters)
+                    temp = pxList
+                    print("\n==== temp ====")
+                    print(temp)
+                else:
+                    lev += 1
+                
+                pxList.clear()
+                # 이 경우가 아닐 경우, 기록된 픽셀은 칸을 나누는 선이다
+            # for time in range(len(hours)):
+
+            temp.clear()
+            quarters.clear()
+        i += 1
+        
+
 
 def main():
     print("# Welcome to Everytime Schedule MAkEr")
@@ -153,7 +215,9 @@ def main():
     matrixRow = CalcRows(files)
     deleteTop(files, target_dir)
     rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
-    print(matrixRow)
+    
+    # print(matrixRow)
+    calcEmpty(rs_files, matrixRow)
 
 
 if __name__ == "__main__":
