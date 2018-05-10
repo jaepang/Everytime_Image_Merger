@@ -137,44 +137,44 @@ def deleteTop(files, target_dir):
 # deleteTop으로 리사이징한 이미지와, CalcRows로 구한 (칸 사이 거리, 칸의 수)를 이용해
 # 비는 시간대를 계산한다 (수업 사이 15분은 사실상 의미가 없으므로 무시한다)
 # [0-15, 15-30, 30-45, 45-60]
-def calcEmpty(files, matrix):
+def CalcTimeTable(files, matrix):
     busyTime = []
     pxList = []
     temp = []
     quarters = []
-    i=0
+    i = 0
     for file in files:
-        print("==== ", file, " ====")
+        print("==== ", file, " ====\n")
         img = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
-        
+
         height, width = img.shape
         print(height, width)
         aQuarter = round((height // matrix[i][1]) / 4)
         print("a quarter : ", aQuarter)
-        
+
         # 1~5 => range(1, 6)
         for days in range(1, 6):
             row = ((width // 5) * days) - 5
             print("Detecting day: ", days)
             lev = 0
             flag = True
-            while lev<height and flag:
+            while lev < height and flag:
                 flag = True
                 px = img[lev, row]
-                while px<250:
+                while px < 250:
                     pxList.append(lev)
                     lev += 1
                     if(lev < height):
                         px = img[lev, row]
                     else:
-                        flag = False;
+                        flag = False
                         break
 
                 if len(pxList) > 0:
 
                     # 시간표에 글씨때문에 잘렸던 경우
                     if len(temp) > 0 and pxList[0] - temp[len(temp)-1] < 20 and len(temp) > 10 and len(pxList) > 10:
-                        if len(quarters)>0 and quarters[len(quarters)-1][1] == temp[0]:
+                        if len(quarters) > 0 and quarters[len(quarters)-1][1] == temp[0]:
                             quarters.pop()
                         classLV = pxList[len(pxList)-1] - temp[0]
                     else:
@@ -189,7 +189,7 @@ def calcEmpty(files, matrix):
                     print(temp)
                 else:
                     lev += 1
-                
+
                 pxList.clear()
                 # 이 경우가 아닐 경우, 기록된 픽셀은 칸을 나누는 선이다
             # for time in range(len(hours)):
@@ -197,7 +197,21 @@ def calcEmpty(files, matrix):
             temp.clear()
             quarters.clear()
         i += 1
-        
+
+def RectangleDetector(files):
+    for file in files:
+        img = cv2.imread(file)
+        imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        blur = cv2.GaussianBlur(imgray, (5,5), 0)
+        ret, thr = cv2.threshold(imgray, 127, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        _, contours, _ = cv2.findContours(thr, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        cv2.drawContours(img, contours, -1, (0,0,255), 1)
+        cv2.imshow('thresh', thr)
+        cv2.imshow('contour', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 def main():
@@ -217,8 +231,8 @@ def main():
     rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
     
     # print(matrixRow)
-    calcEmpty(rs_files, matrixRow)
-
+    # calcEmpty(rs_files, matrixRow)
+    RectangleDetector(rs_files)
 
 if __name__ == "__main__":
     main()
