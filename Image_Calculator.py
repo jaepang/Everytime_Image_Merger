@@ -2,7 +2,7 @@
 __author__ = "shinjawkwang@naver.com"
 # 이 프로그램은 성균관대학교 정보통신대학 밴드동아리 악의 꽃 시간표 조정을 위해 제작한 프로그램입니다.
 # 에브리타임 앱 내의 시간표 "이미지로 저장" 기능으로 저장한 시간표 이미지를 요합니다.
-# 배경색이 흰색 계열인 (회색도 안됨) 테마의 시간표 이미지만 사용 가능합니다.
+# "화이트(기본)" 테마의 시간표 이미지만 사용 가능합니다. (추후 업데이트 예정)
 # 월~금요일까지 기록된 시간표만 지원합니다 (동아리에 토욜시간표도 추가하는 사람이 생기면 그 때 수정 예정)
 
 
@@ -134,7 +134,30 @@ def deleteTop(files, target_dir):
         i += 1
 
 
-# deleteTop으로 리사이징한 이미지와, CalcRows로 구한 (칸 사이 거리, 칸의 수)를 이용해
+# 시간표에서 line을 삭제한다
+# issue : 현재 프로세싱 과정이 상당히 느리다. 
+def deleteLine(files, target_dir):
+    i = 0
+    for file in files:
+        img = cv2.imread(file)
+        imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        height, width, _ = img.shape
+        for row in range(0, height-1):
+            for col in range(0, width-1):
+                pixel = img[row, col]
+                if 185 < pixel[0] < 255 and 185 < pixel[1] < 255 and 185 < pixel[2] < 255:
+                    imgray[row, col] = 255
+        cv2.imwrite(target_dir + '/Complete/' + str(i) + '.jpg', imgray)
+        i += 1
+
+
+def delete(files, target_dir):
+    deleteTop(files, target_dir)
+    rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
+    deleteLine(rs_files, target_dir)
+
+
+# delete로 변환한 이미지와, CalcRows로 구한 (칸 사이 거리, 칸의 수)를 이용해
 # 비는 시간대를 계산한다 (수업 사이 15분은 사실상 의미가 없으므로 무시한다)
 # [0-15, 15-30, 30-45, 45-60]
 def CalcTimeTable(files, matrix):
@@ -227,12 +250,13 @@ def main():
     files = glob.glob(target_dir + "*.jpg")
 
     matrixRow = CalcRows(files)
-    deleteTop(files, target_dir)
-    rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
+    delete(files, target_dir)
+    files = glob.glob(target_dir + '/Complete/' + '*.jpg')
     
     # print(matrixRow)
     # calcEmpty(rs_files, matrixRow)
-    RectangleDetector(rs_files)
+    RectangleDetector(files)
+    
 
 if __name__ == "__main__":
     main()
