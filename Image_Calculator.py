@@ -2,12 +2,14 @@
 __author__ = "shinjawkwang@naver.com"
 # 이 프로그램은 성균관대학교 정보통신대학 밴드동아리 악의 꽃 시간표 조정을 위해 제작한 프로그램입니다.
 # 에브리타임 앱 내의 시간표 "이미지로 저장" 기능으로 저장한 시간표 이미지를 요합니다.
-# "화이트(기본)" 테마의 시간표 이미지만 사용 가능합니다. (추후 업데이트 예정)
+# "화이트(기본)" 테마의 시간표 이미지만 사용 가능합니다. (추후 업데이트.. 할 수 있을까..)
 # 월~금요일까지 기록된 시간표만 지원합니다 (동아리에 토욜시간표도 추가하는 사람이 생기면 그 때 수정 예정)
 
 
 import glob
 
+import os
+import tempfile
 import cv2
 import numpy as np
 
@@ -82,7 +84,7 @@ def CalcRows(files):
 
 
 # 시간표 이미지에서 "월화수목금", "9시, 10시, 11시 ..." 부분을 삭제한다.
-def deleteTop(files, target_dir):
+def deleteTop(files, directory):
     sv = []
     i = 0
     for file in files:
@@ -136,7 +138,9 @@ def deleteTop(files, target_dir):
 
 # 시간표에서 line을 삭제한다
 # issue : 현재 프로세싱 과정이 상당히 느리다. 
-def deleteLine(files, target_dir):
+def deleteLine(files, directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     i = 0
     for file in files:
         img = cv2.imread(file)
@@ -145,16 +149,35 @@ def deleteLine(files, target_dir):
         for row in range(0, height-1):
             for col in range(0, width-1):
                 pixel = img[row, col]
+
+                # G, R, B 값이 모두 185 초과 255 미만인 경우
+                # 화이트(기본) 시간표에서는 이 경우가 모두 시간표를 나누는 선이다 (하드코딩이므로 예외가 나오면 수정 요함)
                 if 185 < pixel[0] < 255 and 185 < pixel[1] < 255 and 185 < pixel[2] < 255:
+
+                    # 해당 부분을 흰색으로 변환한다
                     imgray[row, col] = 255
+
         cv2.imwrite(target_dir + '/Complete/' + str(i) + '.jpg', imgray)
         i += 1
 
 
+# deleteTop과 deleteLine을 동시에 수행하게 하는 method
 def delete(files, target_dir):
-    deleteTop(files, target_dir)
-    rs_files = glob.glob(target_dir + '/Resize/' + '*.jpg')
-    deleteLine(rs_files, target_dir)
+    directory = target_dir + "/Resize/"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    deleteTop(files, target_dir + '/Resize/')
+    rs_files = glob.glob(directory + '*.jpg')
+    deleteLine(rs_files, target_dir + '/Complete/')
+    '''
+    # Delete Images for calculating data
+    try:
+        os.rmdir(path)
+    except OSError:
+        print("Deletion of the directory %s failed", directory)
+    else:
+        print("Deletion SUCCESS")
+    '''
 
 
 # delete로 변환한 이미지와, CalcRows로 구한 (칸 사이 거리, 칸의 수)를 이용해
@@ -178,7 +201,7 @@ def CalcTimeTable(files, matrix):
         # 1~5 => range(1, 6)
         for days in range(1, 6):
             row = ((width // 5) * days) - 5
-            print("Detecting day: ", days)
+            print("<< Detecting day:", days, " >>")
             lev = 0
             flag = True
             while lev < height and flag:
@@ -221,6 +244,7 @@ def CalcTimeTable(files, matrix):
             quarters.clear()
         i += 1
 
+
 def RectangleDetector(files):
     for file in files:
         img = cv2.imread(file)
@@ -249,14 +273,11 @@ def main():
     # ==============================================
     files = glob.glob(target_dir + "*.jpg")
 
-    matrixRow = CalcRows(files)
+    matrix = CalcRows(files)
     delete(files, target_dir)
     files = glob.glob(target_dir + '/Complete/' + '*.jpg')
     
-    # print(matrixRow)
-    # calcEmpty(rs_files, matrixRow)
-    RectangleDetector(files)
-    
+    CalcTimeTable(files, matrix)
 
 if __name__ == "__main__":
     main()
