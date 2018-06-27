@@ -204,8 +204,6 @@ def CalcTimeTable(files, matrix):
                     if img[row+3, col] != 255:
                         table += 1
                 table <<= 1
-        # print(bin(table))
-        print("ERROR TEST:", bin(test&table))
         if test&table > 0:
             print("There can be ERROR; Check after processing")
         if i==0:
@@ -227,7 +225,72 @@ def Calibration(binary):
             calib |= 0xF << (4*i)
         std <<= 4
     return calib
-    
+
+
+def PrintResult(binary):
+    flag = True
+    std = 0x80000000000000000000000000000000000000000000000000000000000000000000000000000000
+    for i in range(5): # 월화수목금; 추후 update
+        if i == 0:
+            print("\n<<< 월요일 가능한 시간 목록 >>>")
+        elif i == 1:
+            print("\n<<< 화요일 가능한 시간 목록 >>>")
+        elif i == 2:
+            print("\n<<< 수요일 가능한 시간 목록 >>>")
+        elif i == 3:
+            print("\n<<< 목요일 가능한 시간 목록 >>>")
+        elif i == 4:
+            print("\n<<< 금요일 가능한 시간 목록 >>>")
+        for j in range(16): # 9시 ~ 새벽 1시
+            for k in range(4):  # [0-15], [15-30], [30-45], [45-60]
+                if std&binary == 0:
+                    flag = False
+                    if j == 0:
+                        print(" 9시", end='')
+                    elif j == 1:
+                        print("10시", end='')
+                    elif j == 2:
+                        print("11시", end='')
+                    elif j == 3:
+                        print("12시", end='')
+                    elif j == 4:
+                        print("13시", end='')
+                    elif j == 5:
+                        print("14시", end='')
+                    elif j == 6:
+                        print("15시", end='')
+                    elif j == 7:
+                        print("16시", end='')
+                    elif j == 8:
+                        print("17시", end='')
+                    elif j == 9:
+                        print("18시", end='')
+                    elif j == 10:
+                        print("19시", end='')
+                    elif j == 11:
+                        print("20시", end='')
+                    elif j == 12:
+                        print("21시", end='')
+                    elif j == 13:
+                        print("22시", end='')
+                    elif j == 14:
+                        print("23시", end='')
+                    elif j == 15:
+                        print("24시", end='')
+                    
+                    if k == 0:
+                        print("00분 ~ 15분")
+                    elif k == 1:
+                        print("15분 ~ 30분")
+                    elif k == 2:
+                        print("30분 ~ 45분")
+                    elif k == 3:
+                        print("45분 ~ 60분")
+                std >>= 1
+
+        if flag:
+            print("가능한 시간대가 없습니다.")
+        flag = True
 
 
 def main():
@@ -248,14 +311,17 @@ def main():
     files = sorted(glob.glob(path + "*.jpg"))
     
     result = CalcTimeTable(files, matrix)
-    print("\n", bin(result))
     calib = Calibration(result)
-    print("\n", bin(calib))
+
+    PrintResult(result)
+
+    print("\n\nCalibrated:")
+    PrintResult(calib)
 
     try:
         os.rmdir(path)
     except OSError:
-        print("Deletion of the directory %s failed", path)
+        print("Deletion of the directory", path, "failed")
     else:
         print("Deletion SUCCESS")
 
