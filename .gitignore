@@ -2,10 +2,11 @@
 .DS_Store
 
 # test
-test.py
+test.*
 
 # .jpg files
 *.jpg
+*.jpeg
 
 # ignore .* folders
 .idea/
